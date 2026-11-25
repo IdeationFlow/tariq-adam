@@ -1,5 +1,5 @@
 /* طريق آدم — keeps the game playable offline after the first visit */
-const CACHE = 'tariq-adam-v4';
+const CACHE = 'tariq-adam-v5';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './icon-512-maskable.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

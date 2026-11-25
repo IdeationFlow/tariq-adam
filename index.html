@@ -169,6 +169,14 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px soli
 input[type="text"],textarea{width:100%;box-sizing:border-box;border-radius:16px;border:1px solid var(--glass-edge);background:rgba(10,8,28,.55);color:var(--ink);
   font:700 1.2rem/1.5 var(--font-body);padding:12px 14px;-webkit-user-select:text;user-select:text}
 input[type="text"]:disabled{opacity:.6}
+.cars{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.carbtn{border:2px solid rgba(255,247,236,.2);border-radius:14px;background:rgba(255,247,236,.06);color:var(--ink);padding:6px 4px 7px;display:grid;gap:3px;justify-items:center;font:800 .88rem/1.1 var(--font-display)}
+.carbtn canvas{width:72px;height:48px}
+.carbtn[aria-pressed="true"]{border-color:var(--sun);background:rgba(255,201,77,.16)}
+select{width:100%;border-radius:16px;border:1px solid var(--glass-edge);background:rgba(10,8,28,.55);color:var(--ink);font:800 1.15rem/1.4 var(--font-display);padding:12px 14px}
+.code{font:800 clamp(3.2rem,16vw,4.6rem)/1 var(--font-display);color:var(--sun);letter-spacing:.12em;direction:ltr;font-variant-numeric:tabular-nums}
+#onCodeIn{text-align:center;font:800 2rem/1.2 var(--font-display);letter-spacing:.2em;direction:ltr}
+.btn.wide{width:100%}
 textarea{min-height:110px;resize:vertical}
 @media (max-width:380px){.rules{grid-template-columns:1fr}.rule{grid-auto-flow:column;justify-content:start;gap:10px}}
 @media (prefers-reduced-motion:reduce){.score.pop,.count.tick,.brake.urgent{animation:none}.brake.urgent{box-shadow:0 0 0 4px var(--sun)}.toast{transition:none}}
@@ -237,7 +245,33 @@ textarea{min-height:110px;resize:vertical}
       <div class="whohead"><span class="label" data-t="who"></span><button class="link" id="manageBtn"></button></div>
       <div class="players" id="players"></div>
       <p class="news"><b data-t="newTag"></b><span data-t="newText"></span></p>
+      <button class="btn blue wide" id="onlineBtn" data-t="online"></button>
       <button class="link" id="editMsg" data-t="editMsg"></button>
+    </div>
+  </section>
+
+  <section class="overlay" id="online" hidden>
+    <div class="card">
+      <h2 class="title sm" data-t="onTitle"></h2>
+      <div class="set" id="onPick">
+        <label class="label" for="onWho" data-t="onWho"></label>
+        <select id="onWho"></select>
+        <div class="row"><button class="btn" id="onHost" data-t="onHost"></button><button class="btn blue" id="onJoin" data-t="onJoin"></button></div>
+      </div>
+      <div id="onHostBox" class="set" hidden style="text-align:center">
+        <p class="sub" data-t="onCodeIs"></p>
+        <div class="code" id="onCode">····</div>
+        <p class="sub" id="onHostStatus"></p>
+        <button class="btn" id="onGo" data-t="onGo" hidden></button>
+      </div>
+      <div id="onJoinBox" class="set" hidden>
+        <label class="label" for="onCodeIn" data-t="onEnter"></label>
+        <input type="text" id="onCodeIn" inputmode="numeric" maxlength="4" autocomplete="off">
+        <button class="btn" id="onConnect" data-t="onConnect"></button>
+        <p class="sub" id="onJoinStatus"></p>
+      </div>
+      <p class="hint" data-t="onHint"></p>
+      <button class="link" id="onClose" data-t="onClose"></button>
     </div>
   </section>
 
@@ -260,6 +294,8 @@ textarea{min-height:110px;resize:vertical}
       <input type="text" id="pName" maxlength="14" autocomplete="off" autocapitalize="words" spellcheck="false">
       <div class="label" data-t="color"></div>
       <div class="swatches" id="pSwatches"></div>
+      <div class="label" data-t="carLabel"></div>
+      <div class="cars" id="pCars"></div>
       <div class="row">
         <button class="btn" id="pSave" data-t="save"></button>
         <button class="btn blue" id="pCancel" data-t="cancel"></button>
@@ -302,7 +338,7 @@ textarea{min-height:110px;resize:vertical}
 (() => {
 "use strict";
 const $ = id => document.getElementById(id);
-const canvas = $('road'), ctx = canvas.getContext('2d');
+const canvas = $('road'); let ctx = canvas.getContext('2d');
 
 /* ---------- words, in both languages ---------- */
 const I18N = {
@@ -328,7 +364,15 @@ const I18N = {
     onF:'شغّالة', offF:'مقفولة', onM:'شغّال', offM:'مقفول', done:'تمام',
     pNew:'اسم جديد', pEdit:'تعديل', pNameLabel:'الاسم', del:'امسح الاسم', delSure:'متأكد؟ اضغط تاني', namePh:'اكتب الاسم',
     edTitle:'رسالة بابا لآدم', edSub:'بتظهر لآدم عند خط النهاية لما يلعب بالعربي.', edLabel:'الرسالة', save:'احفظ', cancel:'إلغاء',
-    finishBanner:'النهاية', defMsg:'برافو يا آدم! بابا فخور بيك وبيحبك قد السما.'
+    finishBanner:'النهاية', carLabel:'شكل العربية',
+    carNames:{classic:'العادية', super:'سوبر كار', electric:'كهربائية', suv:'جيب كبير', family:'جيب عائلي'},
+    online:'العب مع صاحبك من جهاز تاني', onTitle:'سباق مع صاحبك', onWho:'انت مين؟', onHost:'اعمل سباق', onJoin:'ادخل سباق',
+    onCodeIs:'قول الرقم ده لصاحبك:', onWaiting:'مستنيين صاحبك يدخل...', onJoined:n=>`${n} دخل! اضغط «يلا نبدأ»`, onGo:'يلا نبدأ',
+    onEnter:'اكتب الرقم اللي عند صاحبك', onConnect:'ادخل', onConnecting:'بنوصل...', onGuestOk:n=>`اتوصلت بـ ${n}.. استنى لما يبدأ`,
+    onFail:'مقدرناش نوصل. خلي الجهازين على نفس الواي فاي وجرب تاني', onBadCode:'اكتب ٤ أرقام', onNoNet:'السباق مع صاحبك محتاج إنترنت',
+    onLeft:'صاحبك خرج من السباق', onHint:'الأحسن يكون الجهازين على نفس الواي فاي.', onClose:'رجوع', onWaitHost:'استنى صاحبك يبدأ',
+    onAgain:'سباق تاني', vsWon:(n,s)=>`سبقت ${n}! وصلت قبله بـ ${s} ثانية`, vsLost:(n,s)=>`${n} وصل قبلك بـ ${s} ثانية`, vsWait:n=>`مستنيين ${n} يوصل...`,
+    vsTie:n=>`تعادل مع ${n}!`, tPassF:n=>`سبقت ${n}!`, tBehindF:n=>`${n} سبقك.. الحقه!`, defMsg:'برافو يا آدم! بابا فخور بيك وبيحبك قد السما.'
   },
   en: {
     dir:'ltr', langBtn:'عربي', langShort:'ع', langAria:'Switch the game to Arabic',
@@ -352,7 +396,15 @@ const I18N = {
     onF:'On', offF:'Off', onM:'On', offM:'Off', done:'Done',
     pNew:'New name', pEdit:'Edit', pNameLabel:'Name', del:'Delete name', delSure:'Sure? Tap again', namePh:'Type the name',
     edTitle:"Dad's message for Adam", edSub:'Adam sees it at the finish line when he plays in English.', edLabel:'Message', save:'Save', cancel:'Cancel',
-    finishBanner:'FINISH', defMsg:'Bravo, Adam! Dad is so proud of you and loves you all the way to the sky.'
+    finishBanner:'FINISH', carLabel:'Car shape',
+    carNames:{classic:'Classic', super:'Supercar', electric:'Electric', suv:'Big 4x4', family:'Family SUV'},
+    online:'Race a friend on another device', onTitle:'Race a friend', onWho:'Who are you?', onHost:'Start a race', onJoin:'Join a race',
+    onCodeIs:'Tell your friend this number:', onWaiting:'Waiting for your friend…', onJoined:n=>`${n} joined! Press “Let's go”`, onGo:"Let's go",
+    onEnter:"Type your friend's number", onConnect:'Join', onConnecting:'Connecting…', onGuestOk:n=>`Connected to ${n}… wait for the start`,
+    onFail:"Couldn't connect. Put both devices on the same Wi-Fi and try again", onBadCode:'Type 4 digits', onNoNet:'Racing a friend needs the internet',
+    onLeft:'Your friend left the race', onHint:'Works best with both devices on the same Wi-Fi.', onClose:'Back', onWaitHost:'Wait for your friend to start',
+    onAgain:'Race again', vsWon:(n,s)=>`You beat ${n} by ${s} seconds!`, vsLost:(n,s)=>`${n} got there ${s} seconds earlier`, vsWait:n=>`Waiting for ${n} to finish…`,
+    vsTie:n=>`A tie with ${n}!`, tPassF:n=>`You passed ${n}!`, tBehindF:n=>`${n} passed you… catch up!`, defMsg:'Bravo, Adam! Dad is so proud of you and loves you all the way to the sky.'
   }
 };
 
@@ -713,7 +765,83 @@ function drawSprite(seg, s){
   else if (s.type === 'light') drawTrafficLight(x, y, w, s.light);
   ctx.restore();
 }
-function drawCar(cx, by, w, tilt, braking, color, label, magic){
+function drawPlate(label, w, yc){
+  let fs = Math.max(8, w*0.075); ctx.font = FONT(800, fs);
+  let tw = ctx.measureText(label).width;
+  if (tw > w*0.46){ fs *= w*0.46/tw; ctx.font = FONT(800, fs); tw = w*0.46; }
+  const pw = Math.min(w*0.52, Math.max(w*0.26, tw + w*0.07)), ph = w*0.095;
+  ctx.fillStyle = '#fff7ec'; rr(-pw/2, yc-ph/2, pw, ph, ph*0.22); ctx.fill();
+  ctx.fillStyle = '#2a1730'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, yc + ph*0.04);
+}
+function glass(y0, y1){ const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#6a7cae'); g.addColorStop(1, '#1f2640'); return g; }
+function tailGlow(pts, w, braking){
+  if (!braking) return;
+  for (const [x, y] of pts){ const gg = ctx.createRadialGradient(x, y, 0, x, y, w*0.22); gg.addColorStop(0, 'rgba(255,60,60,.7)'); gg.addColorStop(1, 'rgba(255,60,60,0)'); ctx.fillStyle = gg; ctx.fillRect(x-w*0.22, y-w*0.22, w*0.44, w*0.44); }
+}
+/* four extra body styles, seen from behind like the classic car */
+function drawModelCar(cx, by, w, tilt, braking, color, label, magic, model){
+  const h = w*({super:0.46, electric:0.6, suv:0.86, family:0.74}[model]);
+  const tire = magic ? '#4b3d7a' : '#1c1b24', trim = magic ? '#5a4a8a' : '#2a2833';
+  const lamp = magic ? '#ffe7ff' : braking ? '#ff3030' : '#b3262c';
+  const bodyG = () => { const g = ctx.createLinearGradient(0, -h*0.9, 0, -h*0.1); g.addColorStop(0, shade(color, 0.28)); g.addColorStop(1, shade(color, -0.3)); return g; };
+  ctx.save(); ctx.translate(cx, by); ctx.rotate(tilt);
+  if (!magic){ ctx.fillStyle = 'rgba(25,12,32,.35)'; ctx.beginPath(); ctx.ellipse(0, -h*0.02, w*0.62, Math.max(4, w*0.07), 0, 0, 6.283); ctx.fill(); }
+  else { const gl = ctx.createRadialGradient(0, -h*0.5, 0, 0, -h*0.5, w*0.85); gl.addColorStop(0, 'rgba(201,166,255,.45)'); gl.addColorStop(1, 'rgba(201,166,255,0)'); ctx.fillStyle = gl; ctx.fillRect(-w*0.9, -h*1.4, w*1.8, h*1.6); }
+  let plateY;
+  if (model === 'super'){
+    ctx.fillStyle = tire; rr(-w*0.52, -h*0.36, w*0.21, h*0.36, w*0.04); ctx.fill(); rr(w*0.31, -h*0.36, w*0.21, h*0.36, w*0.04); ctx.fill();
+    ctx.fillStyle = bodyG(); ctx.beginPath(); ctx.moveTo(-w*0.53, -h*0.18); ctx.lineTo(-w*0.5, -h*0.6); ctx.quadraticCurveTo(0, -h*0.76, w*0.5, -h*0.6); ctx.lineTo(w*0.53, -h*0.18); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(color, -0.22); ctx.beginPath(); ctx.moveTo(-w*0.27, -h*0.66); ctx.lineTo(-w*0.15, -h*0.98); ctx.lineTo(w*0.15, -h*0.98); ctx.lineTo(w*0.27, -h*0.66); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = glass(-h*0.95, -h*0.7); ctx.beginPath(); ctx.moveTo(-w*0.2, -h*0.7); ctx.lineTo(-w*0.12, -h*0.93); ctx.lineTo(w*0.12, -h*0.93); ctx.lineTo(w*0.2, -h*0.7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = trim; rr(-w*0.47, -h*0.9, w*0.94, h*0.06, h*0.02); ctx.fill(); ctx.fillRect(-w*0.33, -h*0.86, w*0.03, h*0.22); ctx.fillRect(w*0.3, -h*0.86, w*0.03, h*0.22);
+    ctx.fillStyle = lamp; rr(-w*0.45, -h*0.53, w*0.9, h*0.06, h*0.03); ctx.fill();
+    tailGlow([[-w*0.38, -h*0.5], [w*0.38, -h*0.5]], w, braking && !magic);
+    ctx.fillStyle = trim; rr(-w*0.44, -h*0.32, w*0.88, h*0.15, h*0.04); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = Math.max(1, w*0.008);
+    for (let k=-3;k<=3;k++){ ctx.beginPath(); ctx.moveTo(k*w*0.06, -h*0.31); ctx.lineTo(k*w*0.06, -h*0.19); ctx.stroke(); }
+    ctx.fillStyle = '#9aa0b4'; for (const ex of [-w*0.07, w*0.07]){ ctx.beginPath(); ctx.arc(ex, -h*0.25, h*0.05, 0, 6.283); ctx.fill(); }
+    plateY = -h*0.42;
+  } else if (model === 'electric'){
+    ctx.fillStyle = tire; rr(-w*0.49, -h*0.32, w*0.17, h*0.32, w*0.04); ctx.fill(); rr(w*0.32, -h*0.32, w*0.17, h*0.32, w*0.04); ctx.fill();
+    ctx.fillStyle = bodyG(); rr(-w*0.5, -h*0.68, w, h*0.5, w*0.17); ctx.fill();
+    ctx.fillStyle = glass(-h*1.02, -h*0.64); ctx.beginPath(); ctx.moveTo(-w*0.39, -h*0.64); ctx.quadraticCurveTo(-w*0.33, -h*1.02, 0, -h*1.02); ctx.quadraticCurveTo(w*0.33, -h*1.02, w*0.39, -h*0.64); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = Math.max(1, w*0.012); ctx.beginPath(); ctx.moveTo(-w*0.2, -h*0.95); ctx.quadraticCurveTo(-w*0.28, -h*0.82, -w*0.3, -h*0.7); ctx.stroke();
+    ctx.fillStyle = lamp; rr(-w*0.47, -h*0.62, w*0.94, h*0.045, h*0.02); ctx.fill(); rr(-w*0.47, -h*0.64, w*0.12, h*0.08, h*0.03); ctx.fill(); rr(w*0.35, -h*0.64, w*0.12, h*0.08, h*0.03); ctx.fill();
+    tailGlow([[-w*0.4, -h*0.6], [w*0.4, -h*0.6]], w, braking && !magic);
+    ctx.fillStyle = shade(color, -0.38); rr(-w*0.47, -h*0.3, w*0.94, h*0.11, h*0.05); ctx.fill();
+    plateY = -h*0.44;
+  } else if (model === 'suv'){
+    ctx.fillStyle = tire; rr(-w*0.52, -h*0.3, w*0.2, h*0.3, w*0.05); ctx.fill(); rr(w*0.32, -h*0.3, w*0.2, h*0.3, w*0.05); ctx.fill();
+    ctx.fillStyle = bodyG(); rr(-w*0.5, -h*0.62, w, h*0.44, w*0.05); ctx.fill();
+    ctx.fillStyle = shade(color, -0.1); rr(-w*0.45, -h*0.99, w*0.9, h*0.4, w*0.05); ctx.fill();
+    ctx.fillStyle = glass(-h*0.94, -h*0.66); rr(-w*0.37, -h*0.93, w*0.74, h*0.27, w*0.03); ctx.fill();
+    ctx.fillStyle = trim; rr(-w*0.43, -h*1.04, w*0.86, h*0.035, h*0.015); ctx.fill();
+    ctx.fillStyle = lamp; rr(-w*0.49, -h*0.62, w*0.08, h*0.3, h*0.03); ctx.fill(); rr(w*0.41, -h*0.62, w*0.08, h*0.3, h*0.03); ctx.fill();
+    tailGlow([[-w*0.45, -h*0.48], [w*0.45, -h*0.48]], w, braking && !magic);
+    ctx.fillStyle = trim; rr(-w*0.5, -h*0.25, w, h*0.09, h*0.03); ctx.fill(); ctx.fillRect(-w*0.03, -h*0.18, w*0.06, h*0.06);
+    plateY = -h*0.4;
+  } else {
+    ctx.fillStyle = tire; rr(-w*0.5, -h*0.3, w*0.18, h*0.3, w*0.045); ctx.fill(); rr(w*0.32, -h*0.3, w*0.18, h*0.3, w*0.045); ctx.fill();
+    ctx.fillStyle = bodyG(); rr(-w*0.5, -h*0.65, w, h*0.46, w*0.1); ctx.fill();
+    ctx.fillStyle = shade(color, -0.12); ctx.beginPath(); ctx.moveTo(-w*0.43, -h*0.63); ctx.lineTo(-w*0.37, -h*0.97); ctx.lineTo(w*0.37, -h*0.97); ctx.lineTo(w*0.43, -h*0.63); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = glass(-h*0.93, -h*0.68); ctx.beginPath(); ctx.moveTo(-w*0.35, -h*0.68); ctx.lineTo(-w*0.31, -h*0.92); ctx.lineTo(w*0.31, -h*0.92); ctx.lineTo(w*0.35, -h*0.68); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = trim; rr(-w*0.38, -h*1.0, w*0.76, h*0.03, h*0.015); ctx.fill();
+    ctx.fillStyle = lamp; rr(-w*0.48, -h*0.6, w*0.22, h*0.08, h*0.03); ctx.fill(); rr(w*0.26, -h*0.6, w*0.22, h*0.08, h*0.03); ctx.fill(); rr(-w*0.26, -h*0.575, w*0.52, h*0.025, h*0.01); ctx.fill();
+    tailGlow([[-w*0.37, -h*0.56], [w*0.37, -h*0.56]], w, braking && !magic);
+    ctx.fillStyle = trim; rr(-w*0.48, -h*0.27, w*0.96, h*0.09, h*0.04); ctx.fill();
+    plateY = -h*0.42;
+  }
+  drawPlate(label, w, plateY);
+  if (magic){
+    for (let k=0;k<7;k++){
+      const a = now*2.2 + k*0.9, rx = Math.sin(a*1.3)*w*0.62, ry = -h*0.55 + Math.cos(a)*h*0.6, sr = w*(0.03 + 0.02*Math.abs(Math.sin(a*3)));
+      starPath(rx, ry, sr, sr*0.45); ctx.fillStyle = k%2 ? '#fff3b0' : '#e7d4ff'; ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawCar(cx, by, w, tilt, braking, color, label, magic, model){
+  if (model && model !== 'classic' && ['super','electric','suv','family'].includes(model)){ drawModelCar(cx, by, w, tilt, braking, color, label, magic, model); return; }
   const h = w*0.66;
   ctx.save(); ctx.translate(cx, by); ctx.rotate(tilt);
   if (!magic){ ctx.fillStyle = 'rgba(25,12,32,.35)'; ctx.beginPath(); ctx.ellipse(0, -h*0.02, w*0.6, h*0.12, 0, 0, 6.283); ctx.fill(); }
@@ -758,16 +886,18 @@ function drawCar(cx, by, w, tilt, braking, color, label, magic){
   }
   ctx.restore();
 }
-function drawGhost(seg){
-  const gz = ghostP + PLAYER_Z, pct = (gz % SEG)/SEG, a = seg.p1.screen, b = seg.p2.screen;
+function drawGhost(seg){ drawOtherCar(seg, ghostP, ghostX, '#a88cf5', plateName(ghostOwner), true, (getP(ghostOwner) || {}).car); }
+function drawOtherCar(seg, zp, xoff, color, label, magic, model){
+  const gz = zp + PLAYER_Z, pct = (gz % SEG)/SEG, a = seg.p1.screen, b = seg.p2.screen;
   const sc = a.scale + (b.scale - a.scale)*pct;
-  const x = a.x + (b.x - a.x)*pct + sc*ghostX*ROAD_W*K, y = a.y + (b.y - a.y)*pct, w = sc*CAR_WORLD_W*K;
+  const x = a.x + (b.x - a.x)*pct + sc*xoff*ROAD_W*K, y = a.y + (b.y - a.y)*pct, w = sc*CAR_WORLD_W*K;
   if (w < 3 || y - w > seg.clip) return;
   ctx.save();
   if (y > seg.clip){ ctx.beginPath(); ctx.rect(-40, -40, W+80, seg.clip+40); ctx.clip(); }
   const behindPlayer = gz < position + PLAYER_Z - SEG*0.5;
-  ctx.globalAlpha = (behindPlayer ? 0.28 : 0.62) * (0.35 + 0.65*seg.fog);
-  drawCar(x, y, w, 0, false, '#a88cf5', plateName(ghostOwner), true);
+  if (gz < position + SEG) { ctx.restore(); return; }
+  ctx.globalAlpha = (magic ? (behindPlayer ? 0.28 : 0.62) : (behindPlayer ? 0.45 : 1)) * (0.35 + 0.65*seg.fog);
+  drawCar(x, y, w, 0, false, color, label, magic, model);
   ctx.restore();
 }
 
@@ -818,15 +948,17 @@ function render(){
   }
   const showGhost = ghostRun && (state === 'play' || state === 'finish');
   const gSeg = showGhost ? segAt(ghostP + PLAYER_Z) : null;
+  const rSeg = online && net.remote && (state === 'play' || state === 'finish') ? segAt(remP + PLAYER_Z) : null;
   const me = getP(driver);
   for (let n=DRAW_DIST-1; n>0; n--){
     const seg = segments[baseSeg.index + n]; if (!seg || seg.p1.camera.z <= CAM_DEPTH) continue;
     for (const s of seg.sprites) if (!s.taken) drawSprite(seg, s);
     if (seg === gSeg) drawGhost(seg);
+    if (seg === rSeg) drawOtherCar(seg, remP, remX, net.remote.color, net.remote.name, false, net.remote.car);
     if (seg === pSeg){
       const sp = speed/MAX_SPEED;
       const bounce = Math.sin(now*22)*1.4*sp + (Math.abs(playerX) > 1 ? Math.sin(now*40)*2.5*sp : 0);
-      drawCar(W/2, playerLineY + bounce, HALF_W*0.36, steerVis*0.06, (brake || holdT > 0) && state === 'play', me.color, plateName(me.id), false);
+      drawCar(W/2, playerLineY + bounce, HALF_W*0.36, steerVis*0.06, (brake || holdT > 0) && state === 'play', me.color, plateName(me.id), false, me.car);
     }
   }
   drawFireworks();
@@ -929,12 +1061,25 @@ function update(dt){
           ghostAhead = ahead;
         }
       }
+      if (online && net.remote){
+        remToastT -= dt;
+        const diff = position - remP;
+        if (Math.abs(diff) > SEG*2.5){
+          const ahead = diff > 0;
+          if (remAhead !== null && ahead !== remAhead && remToastT <= 0){ if (ahead){ toast(T().tPassF(net.remote.full), 'magic'); sfx.magic(); } else toast(T().tBehindF(net.remote.full), 'magic'); remToastT = 3; }
+          remAhead = ahead;
+        }
+      }
       if (endI >= finishIdx) finishRound();
     } else {
       playT += dt;
       if (ghostRun) [ghostP, ghostX] = ghostAt(playT*ghostRate);
       finishT += dt;
       if (finishT > 1.6 && $('finish').hidden) showFinish();
+    }
+    if (online){
+      remP += (net.rx.p - remP)*Math.min(1, dt*8); remX += (net.rx.x - remX)*Math.min(1, dt*8);
+      sendT -= dt; if (sendT <= 0){ netSend({t:'pos', p: Math.round(position), x: Math.round(playerX*100)/100, s: stars}); sendT = 0.07; }
     }
     engineUpdate(speed/MAX_SPEED, dt);
   }
@@ -953,8 +1098,8 @@ function hud(){
   const total = finishIdx*SEG;
   const p = Math.round(clamp((position + PLAYER_Z)/total, 0, 1)*200)/2;
   if (p !== hudBar){ $('bar').style.width = p + '%'; hudBar = p; }
-  if (ghostRun){
-    const g = Math.round(clamp((ghostP + PLAYER_Z)/total, 0, 1)*200)/2;
+  if (ghostRun || online){
+    const g = Math.round(clamp(((online ? remP : ghostP) + PLAYER_Z)/total, 0, 1)*200)/2;
     if (g !== hudG){ $('gdot').style.insetInlineStart = g + '%'; hudG = g; }
   }
   let sig = '';
@@ -1023,7 +1168,7 @@ function renderPlayers(){
   add.onclick = () => openPlayerEd(null); box.append(add);
   $('manageBtn').textContent = managing ? T().manageDone : T().manage;
 }
-let edId = null, edColor = PALETTE[0], delArmed = false;
+let edId = null, edColor = PALETTE[0], edCar = 'classic', delArmed = false;
 const isFixed = id => id === 'adam' || id === 'baba';
 function openPlayerEd(id){
   edId = id; delArmed = false;
@@ -1031,12 +1176,14 @@ function openPlayerEd(id){
   $('pedTitle').textContent = id ? T().pEdit : T().pNew;
   const inp = $('pName'); inp.value = p ? dispName(id) : ''; inp.disabled = isFixed(id);
   edColor = p ? p.color : PALETTE[store.players.length % PALETTE.length];
+  edCar = (p && p.car) || 'classic';
   paintPSwatches();
   const del = $('pDelete'); del.hidden = !id || isFixed(id); del.textContent = T().del;
   show('menu', false); show('playerEd', true);
   if (!isFixed(id)) setTimeout(() => { try { inp.focus(); } catch(_){} }, 60);
 }
 function paintPSwatches(){
+  paintPCars();
   const box = $('pSwatches'); box.textContent = '';
   PALETTE.forEach((c, k) => {
     const b = document.createElement('button'); b.className = 'sw'; b.style.background = c;
@@ -1045,12 +1192,24 @@ function paintPSwatches(){
     box.append(b);
   });
 }
+function paintPCars(){
+  const box = $('pCars'); box.textContent = '';
+  for (const m of ['classic','super','electric','suv','family']){
+    const b = document.createElement('button'); b.className = 'carbtn'; b.setAttribute('aria-pressed', String(m === edCar));
+    const cv = document.createElement('canvas'); cv.width = 180; cv.height = 120;
+    const lb = document.createElement('span'); lb.textContent = T().carNames[m];
+    b.append(cv, lb); b.onclick = () => { edCar = m; paintPCars(); }; box.append(b);
+    const saved = ctx; ctx = cv.getContext('2d');
+    try { drawCar(90, 110, m === 'super' ? 150 : m === 'suv' ? 112 : 128, 0, false, edColor, '', false, m); } catch(e){}
+    ctx = saved;
+  }
+}
 function closePlayerEd(){ show('playerEd', false); renderPlayers(); show('menu', true); }
 $('pSave').onclick = () => {
   const name = $('pName').value.trim().slice(0, 14);
   if (!isFixed(edId) && !name){ $('pName').focus(); return; }
-  if (edId){ const p = getP(edId); p.color = edColor; if (!isFixed(edId)) p.name = name; }
-  else store.players.push({id:'p' + Date.now().toString(36) + Math.floor(Math.random()*1296).toString(36), name, color:edColor, best:0});
+  if (edId){ const p = getP(edId); p.color = edColor; p.car = edCar; if (!isFixed(edId)) p.name = name; }
+  else store.players.push({id:'p' + Date.now().toString(36) + Math.floor(Math.random()*1296).toString(36), name, color:edColor, car:edCar, best:0});
   saveStore(); closePlayerEd();
 };
 $('pCancel').onclick = closePlayerEd;
@@ -1089,20 +1248,106 @@ function startTilt(){
 let wheelShown = 0;
 function wheelVisual(v){ if (Math.abs(v - wheelShown) < 0.01) return; wheelShown = v; $('wheelSvg').style.transform = 'rotate(' + (v*120).toFixed(1) + 'deg)'; }
 
+/* ---------- race a friend on another device (peer to peer, loaded only when asked) ---------- */
+const PEER_PREFIX = 'tariq-adam-race-';
+let online = false, remP = 0, remX = 0, onWhoId = 'adam', remAhead = null, remToastT = 0, sendT = 0;
+let net = {peer:null, conn:null, role:null, remote:null, rx:{p:0, x:0, s:0}, fin:null};
+function loadPeer(){
+  if (window.Peer) return Promise.resolve(true);
+  const urls = ['https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js', 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'];
+  return new Promise(res => { let i = 0; const next = () => { if (i >= urls.length) return res(false); const sc = document.createElement('script'); sc.src = urls[i++]; sc.onload = () => res(!!window.Peer); sc.onerror = next; document.head.append(sc); }; next(); });
+}
+function netSend(m){ try { if (net.conn && net.conn.open) net.conn.send(m); } catch(e){} }
+function netClose(){
+  try { net.conn && net.conn.close(); } catch(e){} try { net.peer && net.peer.destroy(); } catch(e){}
+  net = {peer:null, conn:null, role:null, remote:null, rx:{p:0, x:0, s:0}, fin:null}; online = false;
+}
+function myHello(){ const p = getP(onWhoId); netSend({t:'hello', name: plateName(p.id), full: dispName(p.id), color: p.color, car: p.car || 'classic'}); }
+function wireConn(c){
+  net.conn = c;
+  c.on('open', () => { myHello(); });
+  c.on('data', m => {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'hello'){
+      const col = /^#[0-9a-f]{6}$/i.test(m.color) ? m.color : '#20c5c5';
+      const car = ['classic','super','electric','suv','family'].includes(m.car) ? m.car : 'classic';
+      net.remote = {name: String(m.name || '؟').slice(0, 14), full: String(m.full || m.name || '؟').slice(0, 14), color: col, car};
+      if (net.role === 'host'){ $('onHostStatus').textContent = T().onJoined(net.remote.full); $('onGo').hidden = false; }
+      else $('onJoinStatus').textContent = T().onGuestOk(net.remote.full);
+    } else if (m.t === 'start'){ if (net.role === 'guest') startOnline(); }
+    else if (m.t === 'pos'){ net.rx = {p: +m.p || 0, x: clamp(+m.x || 0, -1.5, 1.5), s: +m.s || 0}; }
+    else if (m.t === 'fin'){ net.fin = {time: +m.time || 0, stars: +m.stars || 0}; if (!$('finish').hidden) paintFinish(); }
+  });
+  c.on('close', () => { const was = !!net.remote; net.remote = null; if (was) toast(T().onLeft, 'warn');
+    if (!$('online').hidden){ $('onGo').hidden = true; if (net.role === 'host') $('onHostStatus').textContent = T().onWaiting; } net.conn = null; });
+  c.on('error', () => {});
+}
+function openOnline(){
+  const sel = $('onWho'); sel.textContent = '';
+  for (const p of store.players){ const o = document.createElement('option'); o.value = p.id; o.textContent = dispName(p.id); sel.append(o); }
+  sel.value = store.players.some(p => p.id === onWhoId) ? onWhoId : store.players[0].id;
+  $('onPick').hidden = false; $('onHostBox').hidden = true; $('onJoinBox').hidden = true; $('onGo').hidden = true;
+  $('onHostStatus').textContent = ''; $('onJoinStatus').textContent = ''; $('onCodeIn').value = '';
+  show('menu', false); show('online', true);
+}
+function hostRace(){
+  onWhoId = $('onWho').value; netClose(); net.role = 'host';
+  $('onPick').hidden = true; $('onHostBox').hidden = false; $('onCode').textContent = '····'; $('onHostStatus').textContent = T().onConnecting;
+  loadPeer().then(ok => {
+    if (!ok){ $('onHostStatus').textContent = T().onNoNet; return; }
+    const tryOpen = (left) => {
+      const code = String(1000 + Math.floor(Math.random()*9000));
+      const peer = new Peer(PEER_PREFIX + code, {debug: 0}); net.peer = peer; net.role = 'host';
+      peer.on('open', () => { $('onCode').textContent = code; $('onHostStatus').textContent = T().onWaiting; });
+      peer.on('connection', c => { if (net.conn && net.conn.open){ try { c.close(); } catch(e){} return; } wireConn(c); });
+      peer.on('error', e => { if (e && e.type === 'unavailable-id' && left > 0){ try { peer.destroy(); } catch(_){} tryOpen(left-1); } else $('onHostStatus').textContent = T().onFail; });
+    };
+    tryOpen(3);
+  });
+}
+function joinRace(){
+  onWhoId = $('onWho').value;
+  $('onPick').hidden = true; $('onJoinBox').hidden = false; $('onJoinStatus').textContent = '';
+  setTimeout(() => { try { $('onCodeIn').focus(); } catch(e){} }, 60);
+}
+function connectRace(){
+  const code = $('onCodeIn').value.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
+  if (code.length !== 4){ $('onJoinStatus').textContent = T().onBadCode; return; }
+  netClose(); net.role = 'guest'; $('onJoinStatus').textContent = T().onConnecting;
+  loadPeer().then(ok => {
+    if (!ok){ $('onJoinStatus').textContent = T().onNoNet; return; }
+    const peer = new Peer(undefined, {debug: 0}); net.peer = peer; net.role = 'guest';
+    peer.on('open', () => {
+      const c = peer.connect(PEER_PREFIX + code, {reliable: true}); wireConn(c);
+      setTimeout(() => { if (!net.conn || !net.conn.open) $('onJoinStatus').textContent = T().onFail; }, 9000);
+    });
+    peer.on('error', () => { $('onJoinStatus').textContent = T().onFail; });
+  });
+}
+function startOnline(){ if (!net.conn || !net.conn.open || !net.remote) return; startRound(onWhoId, true); }
+$('onlineBtn').onclick = openOnline;
+$('onHost').onclick = hostRace;
+$('onJoin').onclick = joinRace;
+$('onConnect').onclick = connectRace;
+$('onCodeIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); connectRace(); } });
+$('onGo').onclick = () => { netSend({t:'start'}); startOnline(); };
+$('onClose').onclick = () => { netClose(); show('online', false); show('menu', true); };
+
 /* ---------- flow ---------- */
 function show(id, on){ $(id).hidden = !on; }
-function hideCards(){ ['menu','finish','editor','settings','playerEd'].forEach(id => show(id, false)); }
-function startRound(pid){
+function hideCards(){ ['menu','finish','editor','settings','playerEd','online'].forEach(id => show(id, false)); }
+function startRound(pid, isOnline){
   driver = pid; audio(); managing = false;
+  online = !!isOnline; remP = 0; remX = 0; remAhead = null; remToastT = 2; sendT = 0; net.fin = null; net.rx = {p:0, x:0, s:0};
   if (store.control === 'tilt') startTilt().then(ok => { if (!ok && store.control === 'tilt'){ store.control = 'wheel'; saveStore(); applyControl(); toast(T().tTiltNo, 'warn'); } });
   resetRound();
   position = 0; playerX = 0; speed = 0; stars = 0; stops = 0; finishT = 0; redHinted = false; steerVis = 0; holdT = 0;
   keyL = keyR = brake = false; wheelVal = 0; paintWheel(); ['leftBtn','rightBtn','brakeBtn'].forEach(id => $(id).classList.remove('on'));
   hudStars = -1; hudBar = -1; hudG = -1; hudSig = null;
-  const opp = store.magic ? store.recent.find(id => id !== pid && store.laps[id] && Array.isArray(store.laps[id].p) && store.laps[id].p.length > 10 && store.players.some(p => p.id === id)) : null;
+  const opp = store.magic && !online ? store.recent.find(id => id !== pid && store.laps[id] && Array.isArray(store.laps[id].p) && store.laps[id].p.length > 10 && store.players.some(p => p.id === id)) : null;
   ghostRun = opp ? store.laps[opp] : null; ghostOwner = opp || null; ghostRate = store.magicRate || 1;
   ghostP = 0; ghostX = 0; ghostAhead = null; ghostToastT = 2; playT = 0;
-  $('gdot').hidden = !ghostRun;
+  $('gdot').hidden = !ghostRun && !online;
   const me = getP(pid);
   $('driverName').textContent = T().driving(dispName(pid)); $('driverDot').style.background = me.color;
   hideCards(); applyControl();
@@ -1124,7 +1369,8 @@ function finishRound(){
   store.recent = [driver, ...store.recent.filter(x => x !== driver)].slice(0, 6);
   for (const id of Object.keys(store.laps)) if (!store.recent.includes(id)) delete store.laps[id];
   saveStore();
-  lastResult = {pid: driver, stars, stops, isNew, race};
+  lastResult = {pid: driver, stars, stops, isNew, race, online, time: myTime};
+  if (online) netSend({t:'fin', time: myTime, stars});
   fwQueue = (isNew || (race && race.diff > 0)) ? 9 : 5; fwT = 0.2;
 }
 function paintFinish(){
@@ -1138,6 +1384,12 @@ function paintFinish(){
     const d = r.race.diff, o = dispName(r.race.owner); fr.hidden = false; fr.classList.toggle('won', d > 0.05);
     fr.textContent = Math.abs(d) <= 0.05 ? t.tie(o) : d > 0 ? t.won(o, N1(d)) : t.lost(o, N1(-d));
   } else fr.hidden = true;
+  if (r.online){
+    const n = net.remote ? net.remote.full : '؟'; fr.hidden = false;
+    if (!net.fin){ fr.classList.remove('won'); fr.textContent = t.vsWait(n); }
+    else { const d = net.fin.time - r.time; fr.classList.toggle('won', d > 0.05); fr.textContent = Math.abs(d) <= 0.05 ? t.vsTie(n) : d > 0 ? t.vsWon(n, N1(d)) : t.vsLost(n, N1(-d)); }
+    $('againBtn').textContent = net.role === 'guest' ? t.onWaitHost : t.onAgain; $('againBtn').disabled = net.role === 'guest';
+  } else { $('againBtn').textContent = t.again; $('againBtn').disabled = false; }
   $('finNote').hidden = r.pid !== 'adam'; $('finMsg').textContent = store.msg[store.lang] || t.defMsg;
   const ranked = store.players.filter(p => (p.best || 0) > 0).sort((a, b) => b.best - a.best).slice(0, 5);
   $('champs').hidden = !ranked.length;
@@ -1153,7 +1405,7 @@ function paintFinish(){
 }
 function showFinish(){ paintFinish(); show('hud', false); show('finish', true); }
 function goMenu(){
-  state = 'menu'; engineStop(); ghostRun = null; fwQueue = 0; managing = false;
+  state = 'menu'; engineStop(); ghostRun = null; fwQueue = 0; managing = false; if (online) netClose();
   show('hud', false); show('controls', false); hideCards(); $('signal').hidden = true; $('count').hidden = true;
   resetRound(); position = 0;
   renderPlayers();
@@ -1187,8 +1439,8 @@ const KEYS = {ArrowLeft:v=>keyL=v, ArrowRight:v=>keyR=v, ArrowDown:v=>brake=v, '
 window.addEventListener('keydown', e => { if (KEYS[e.key] && state === 'play'){ KEYS[e.key](true); e.preventDefault(); } });
 window.addEventListener('keyup', e => { if (KEYS[e.key]) KEYS[e.key](false); });
 
-$('againBtn').onclick = () => startRound(lastResult ? lastResult.pid : driver);
-$('nextBtn').onclick = goMenu;
+$('againBtn').onclick = () => { if (lastResult && lastResult.online){ if (net.role === 'host' && net.remote){ netSend({t:'start'}); startOnline(); } return; } startRound(lastResult ? lastResult.pid : driver); };
+$('nextBtn').onclick = () => { if (online) netClose(); goMenu(); };
 $('homeBtn').onclick = goMenu;
 $('langMenu').onclick = () => setLang(store.lang === 'ar' ? 'en' : 'ar');
 $('langHud').onclick = () => setLang(store.lang === 'ar' ? 'en' : 'ar');
